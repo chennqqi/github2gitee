@@ -41,38 +41,49 @@ function copyWithoutMaps(src, dest) {
 
 /**
  * Creates a zip whose root contains the files of `sourceDir` (not a parent folder).
+ * Entry names always use forward slashes — required by Firefox / AMO validation.
  */
 function zipDirectoryContents(sourceDir, zipPath) {
   if (existsSync(zipPath)) {
     rmSync(zipPath, { force: true });
   }
 
-  if (platform() === "win32") {
-    const ps = `
-$ErrorActionPreference = 'Stop'
-$src = '${sourceDir.replace(/'/g, "''")}'
-$dst = '${zipPath.replace(/'/g, "''")}'
-if (Test-Path $dst) { Remove-Item -Force $dst }
-Compress-Archive -Path (Join-Path $src '*') -DestinationPath $dst -Force
-`;
-    const result = spawnSync(
-      "powershell",
-      ["-NoProfile", "-NonInteractive", "-Command", ps],
-      { stdio: "inherit", cwd: root },
-    );
-    if (result.status !== 0) {
-      throw new Error(`Compress-Archive failed for ${zipPath}`);
-    }
-    return;
-  }
+  // PowerShell Compress-Archive writes backslash paths (background\index.js),
+  // which Firefox rejects. Use Python zipfile with POSIX arcnames instead.
+  const py = `
+from pathlib import Path
+import zipfile
+import sys
 
-  const result = spawnSync("zip", ["-r", "-q", zipPath, "."], {
+source = Path(sys.argv[1])
+zip_path = Path(sys.argv[2])
+if zip_path.exists():
+    zip_path.unlink()
+names = []
+with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+    for path in sorted(source.rglob("*")):
+        if not path.is_file():
+            continue
+        arcname = path.relative_to(source).as_posix()
+        if "\\\\" in arcname or arcname.startswith("/"):
+            raise SystemExit(f"invalid arcname: {arcname}")
+        zf.write(path, arcname)
+        names.append(arcname)
+raw = zip_path.read_bytes()
+if b"background\\\\index" in raw or b"content\\\\index" in raw:
+    raise SystemExit("zip raw bytes still contain backslash paths")
+print(f"wrote {len(names)} entries -> {zip_path.name}")
+for name in names[:5]:
+    print(" ", name)
+`;
+
+  const result = spawnSync("python", ["-c", py, sourceDir, zipPath], {
     stdio: "inherit",
-    cwd: sourceDir,
+    cwd: root,
   });
   if (result.status !== 0) {
     throw new Error(
-      `zip failed for ${zipPath}. Install 'zip' or run on Windows PowerShell.`,
+      `Failed to create zip with forward-slash entries: ${zipPath}`,
     );
   }
 }
@@ -143,8 +154,9 @@ function main() {
       ``,
       `Upload *-chrome.zip to Chrome Web Store / Edge Add-ons.`,
       `Upload *-firefox.zip to Firefox AMO.`,
-      `Source maps are excluded from these zips.`,
-      ``,
+          `Source maps are excluded from these zips.`,
+          `Zip entry paths use forward slashes (Firefox-compatible).`,
+          ``,
       ...created.map((p) => `- ${relative(releaseDir, p)}`),
       ``,
     ].join("\n"),

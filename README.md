@@ -43,6 +43,7 @@ Zips are written to `extension/release/` (`*-chrome.zip`, `*-firefox.zip`). Sour
 | PRD | [`doc/prd-github2gitee-extension.md`](./doc/prd-github2gitee-extension.md) |
 | Release checklist | [`doc/release-checklist.md`](./doc/release-checklist.md) |
 | Store listing draft | [`doc/store-listing.md`](./doc/store-listing.md) |
+| Store screenshots & paste copy | [`doc/store-assets/`](./doc/store-assets/) |
 | Privacy policy | [`doc/privacy-policy.md`](./doc/privacy-policy.md) |
 | Design | [`doc/design-github2gitee-extension.md`](./doc/design-github2gitee-extension.md) |
 

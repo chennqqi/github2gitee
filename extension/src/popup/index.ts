@@ -98,7 +98,7 @@ function renderMappings(mappings: RepoMapping[]): void {
   }
 
   root.className = "";
-  root.innerHTML = "";
+  root.replaceChildren();
   const list = document.createElement("ul");
 
   for (const mapping of mappings) {

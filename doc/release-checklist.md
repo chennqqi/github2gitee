@@ -19,7 +19,8 @@
 
 - [x] MIT `LICENSE`
 - [x] 隐私政策草稿 [`privacy-policy.md`](./privacy-policy.md)（英文为准据文本，附中文译本）
-- [x] 商店文案草稿 [`store-listing.md`](./store-listing.md)
+- [x] 商店文案草稿 [`store-listing.md`](./store-listing.md) + 可粘贴稿 [`store-assets/SUBMISSION_COPY.md`](./store-assets/SUBMISSION_COPY.md)
+- [x] 商店截图 1280×800 ×3（[`store-assets/`](./store-assets/)）
 - [x] 打包脚本：`cd extension && npm run pack`
 - [x] 构建产物：`dist/chrome`、`dist/firefox`
 - [ ] 正式版号改为 `1.0.0`（上架当次再改）
@@ -39,6 +40,10 @@ npm run pack
 
 - `github2gitee-<version>-chrome.zip`（Chrome / Edge 通用）
 - `github2gitee-<version>-firefox.zip`
+
+> Firefox / AMO 要求 zip 内路径使用 `/`。请用 `npm run pack` 生成；不要用 Windows「发送到压缩文件夹」或 `Compress-Archive`，否则会出现 `Invalid file name in archive: background\index.js`。
+>
+> Firefox 还要求 `browser_specific_settings.gecko.data_collection_permissions`（本扩展声明 `authenticationInfo` + `websiteContent`；桌面 `strict_min_version` ≥ 140，Android ≥ 142）。
 
 ---
 
@@ -76,8 +81,8 @@ npm run pack
 | 素材 | Chrome | Edge | Firefox | 状态 |
 |------|--------|------|---------|------|
 | 扩展图标 128 | 已有 `icon128.png` | 同左 | 同左 | 工程内已有 |
-| 商店小图 / 宣传图 | 需按控制台规格导出 | 同 | 同 | [ ] 待制作 |
-| 截图 ≥1 张 | 建议 1280×800 或 640×400 | 按控制台 | 按控制台 | [ ] 待制作 |
+| 商店小图 / 宣传图 | 440×280 + 1400×560 | 同 | 视商店 | [x] `promo-small-440x280.jpg` / `promo-marquee-1400x560.jpg` |
+| 截图 ≥1 张 | 建议 1280×800 | 按控制台 | 按控制台 | [x] `doc/store-assets/shot-0*.png` |
 | 推荐截图内容 | ① GitHub 页小按钮/面板 ② 设置页 ③ 弹窗映射列表 | | | |
 
 截图可用系统截图工具制作；上架前替换商店占位图。
@@ -117,6 +122,6 @@ npm run pack
 ## 7. 阻塞项（未完成则不要点「提交审核」）
 
 1. 公网隐私政策 URL + 真实支持邮箱  
-2. 至少 1～3 张合格截图  
+2. 至少 1～3 张合格截图（已备 `doc/store-assets/shot-0*.png`，仍建议真人实机再补一张）  
 3. 三端冒烟通过  
 4. 正式版本号与商店描述中的能力边界一致  

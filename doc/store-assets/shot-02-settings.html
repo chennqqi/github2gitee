@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Store shot — Settings</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      width: 1280px;
+      height: 800px;
+      overflow: hidden;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .chrome {
+      height: 40px;
+      background: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 14px;
+      color: #64748b;
+      font-size: 12px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; }
+    .url {
+      flex: 1;
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px 14px;
+      border: 1px solid #cbd5e1;
+    }
+    main {
+      max-width: 720px;
+      margin: 28px auto 0;
+      padding: 0 24px;
+    }
+    .hero {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .hero img { width: 48px; height: 48px; border-radius: 12px; }
+    h1 { margin: 0 0 6px; font-size: 24px; color: #0f766e; }
+    .lead { margin: 0; color: #64748b; line-height: 1.55; font-size: 14px; }
+    .section {
+      margin-bottom: 14px;
+      padding: 16px 18px;
+      border-radius: 12px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+    }
+    .section h2 { margin: 0 0 12px; font-size: 14px; color: #0f766e; }
+    .langs { display: flex; gap: 6px; }
+    .lang {
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .lang.active { background: #ccfbf1; color: #0f766e; border-color: transparent; }
+    label { display: block; margin: 12px 0 6px; font-size: 13px; font-weight: 600; }
+    label:first-of-type { margin-top: 0; }
+    .field {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fff;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    .hint { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .actions { margin-top: 14px; display: flex; gap: 10px; }
+    .primary {
+      border: 0; border-radius: 8px; padding: 10px 14px;
+      background: #0d9488; color: #fff; font-size: 14px;
+    }
+    .secondary {
+      border: 0; border-radius: 8px; padding: 10px 14px;
+      background: #f1f5f9; color: #0f172a; font-size: 14px;
+    }
+    .caption {
+      position: absolute;
+      left: 28px;
+      bottom: 20px;
+      font-size: 13px;
+      color: #64748b;
+    }
+    ol { margin: 0; padding-left: 20px; color: #475569; line-height: 1.7; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="chrome">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <div class="url">chrome-extension://…/options/index.html</div>
+  </div>
+  <main>
+    <div class="hero">
+      <img src="./icon128.png" alt="" />
+      <div>
+        <h1>Settings</h1>
+        <p class="lead">Global settings only: language, tokens, and check interval. Import/sync happens on the GitHub panel or extension popup.</p>
+      </div>
+    </div>
+
+    <section class="section">
+      <h2>Language</h2>
+      <div class="langs">
+        <span class="lang">Follow browser</span>
+        <span class="lang active">EN</span>
+        <span class="lang">中文</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Token setup guide</h2>
+      <ol>
+        <li>Open the Gitee personal access tokens page</li>
+        <li>Create a token with project/repository permissions</li>
+        <li>Paste it below, save, then validate</li>
+      </ol>
+    </section>
+
+    <section class="section">
+      <h2>Tokens</h2>
+      <label>Gitee access token (required)</label>
+      <div class="field">••••••••••••••••••••</div>
+      <div class="hint">Stored only in local extension storage.</div>
+      <label>GitHub token (optional for public repos)</label>
+      <div class="field">(optional)</div>
+      <div class="actions">
+        <button class="primary" type="button">Save</button>
+        <button class="secondary" type="button">Validate token</button>
+      </div>
+    </section>
+  </main>
+  <div class="caption">Store screenshot 2/3 — Settings (tokens & language)</div>
+</body>
+</html>

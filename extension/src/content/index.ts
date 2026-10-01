@@ -281,6 +281,35 @@ type PanelState = {
 };
 
 /**
+ * Sets a single hint box under the panel using textContent only (no innerHTML).
+ */
+function setStepsHint(parent: HTMLElement, text: string): void {
+  parent.replaceChildren();
+  const box = document.createElement("div");
+  box.className = "g2g-steps";
+  box.textContent = text;
+  parent.appendChild(box);
+}
+
+/**
+ * Creates a DOM element with optional className and textContent.
+ */
+function el<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  className?: string,
+  text?: string,
+): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  if (className) {
+    node.className = className;
+  }
+  if (text !== undefined) {
+    node.textContent = text;
+  }
+  return node;
+}
+
+/**
  * Renders the GitHub-page control panel.
  */
 function renderPanel(state: PanelState, onRefresh: () => void): void {
@@ -296,7 +325,10 @@ function renderPanel(state: PanelState, onRefresh: () => void): void {
     mini.type = "button";
     mini.title = t(locale, "app_name");
     mini.setAttribute("aria-label", t(locale, "app_name"));
-    mini.innerHTML = `<img alt="" src="${LOGO_URL}" />`;
+    const miniImg = document.createElement("img");
+    miniImg.alt = "";
+    miniImg.src = LOGO_URL;
+    mini.appendChild(miniImg);
     mini.addEventListener("click", () => {
       state.collapsed = false;
       writeCollapsedPref(false);
@@ -316,39 +348,55 @@ function renderPanel(state: PanelState, onRefresh: () => void): void {
       ? `${t(locale, "gitee_user")}: ${state.context.gitee_login}`
       : t(locale, "on_page_hint");
 
-  root.innerHTML = `
-    <div class="g2g-card">
-      <div class="g2g-head">
-        <div class="g2g-brand-row">
-          <img class="g2g-logo" alt="" src="${LOGO_URL}" />
-          <div class="g2g-brand">
-            <strong>${t(locale, "app_name")}</strong>
-            <span>${subtitle}</span>
-          </div>
-        </div>
-        <div class="g2g-tools">
-          <button class="g2g-close" type="button" title="${t(locale, "collapse")}">×</button>
-        </div>
-      </div>
-      <div class="g2g-body">
-        <p class="g2g-repo">${state.owner}/${state.repo}</p>
-        <div class="g2g-status">
-          <span class="g2g-dot ${st.tone === "warn" ? "warn" : st.tone === "bad" ? "bad" : ""}"></span>
-          ${st.label}
-        </div>
-        <div class="g2g-setup"></div>
-        <p class="g2g-msg ${state.isError ? "error" : ""}"></p>
-        <div class="g2g-actions"></div>
-      </div>
-    </div>
-  `;
+  const card = el("div", "g2g-card");
+  const head = el("div", "g2g-head");
+  const brandRow = el("div", "g2g-brand-row");
+  const logo = document.createElement("img");
+  logo.className = "g2g-logo";
+  logo.alt = "";
+  logo.src = LOGO_URL;
+  const brand = el("div", "g2g-brand");
+  brand.appendChild(el("strong", undefined, t(locale, "app_name")));
+  brand.appendChild(el("span", undefined, subtitle));
+  brandRow.appendChild(logo);
+  brandRow.appendChild(brand);
 
-  const setupEl = root.querySelector(".g2g-setup") as HTMLElement;
-  const msgEl = root.querySelector(".g2g-msg") as HTMLElement;
-  const actionsEl = root.querySelector(".g2g-actions") as HTMLElement;
+  const tools = el("div", "g2g-tools");
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "g2g-close";
+  closeBtn.type = "button";
+  closeBtn.title = t(locale, "collapse");
+  closeBtn.textContent = "×";
+  tools.appendChild(closeBtn);
+  head.appendChild(brandRow);
+  head.appendChild(tools);
+
+  const body = el("div", "g2g-body");
+  body.appendChild(
+    el("p", "g2g-repo", `${state.owner}/${state.repo}`),
+  );
+  const status = el("div", "g2g-status");
+  const dot = el(
+    "span",
+    `g2g-dot${st.tone === "warn" ? " warn" : st.tone === "bad" ? " bad" : ""}`,
+  );
+  status.appendChild(dot);
+  status.appendChild(document.createTextNode(st.label));
+  body.appendChild(status);
+
+  const setupEl = el("div", "g2g-setup");
+  const msgEl = el("p", `g2g-msg${state.isError ? " error" : ""}`);
   msgEl.textContent = state.message;
+  const actionsEl = el("div", "g2g-actions");
+  body.appendChild(setupEl);
+  body.appendChild(msgEl);
+  body.appendChild(actionsEl);
 
-  root.querySelector(".g2g-close")?.addEventListener("click", () => {
+  card.appendChild(head);
+  card.appendChild(body);
+  root.appendChild(card);
+
+  closeBtn.addEventListener("click", () => {
     state.collapsed = true;
     writeCollapsedPref(true);
     renderPanel(state, onRefresh);
@@ -369,7 +417,7 @@ function renderPanel(state: PanelState, onRefresh: () => void): void {
   };
 
   if (needsSetup) {
-    setupEl.innerHTML = `<div class="g2g-steps">${t(locale, "panel_setup_hint")}</div>`;
+    setStepsHint(setupEl, t(locale, "panel_setup_hint"));
     addBtn(t(locale, "open_setup"), "primary", () => {
       void sendMessage({ type: "open_options" });
     });
@@ -377,7 +425,7 @@ function renderPanel(state: PanelState, onRefresh: () => void): void {
   } else {
     const mapping = state.context.mapping;
     if (!mapping) {
-      setupEl.innerHTML = `<div class="g2g-steps">${t(locale, "import_hint")}</div>`;
+      setStepsHint(setupEl, t(locale, "import_hint"));
       addBtn(t(locale, "import_to_gitee"), "primary", () => {
         void (async () => {
           state.busy = true;
@@ -428,7 +476,7 @@ function renderPanel(state: PanelState, onRefresh: () => void): void {
         })();
       });
     } else if (mapping.status === "pending_import") {
-      setupEl.innerHTML = `<div class="g2g-steps">${t(locale, "pending_hint")}</div>`;
+      setStepsHint(setupEl, t(locale, "pending_hint"));
       addBtn(t(locale, "confirm_imported"), "primary", () => {
         void (async () => {
           state.busy = true;
@@ -474,7 +522,7 @@ function renderPanel(state: PanelState, onRefresh: () => void): void {
         })();
       });
     } else {
-      setupEl.innerHTML = `<div class="g2g-steps">${t(locale, "sync_hint")}</div>`;
+      setStepsHint(setupEl, t(locale, "sync_hint"));
       addBtn(t(locale, "sync_now"), "primary", () => {
         void (async () => {
           state.busy = true;
