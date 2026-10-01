@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub to Gitee Sync",
+  "version": "0.4.3",
+  "description": "Import and sync GitHub repositories to Gitee via official Gitee flows",
+  "action": {
+    "default_title": "GitHub to Gitee",
+    "default_popup": "popup/index.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "options/index.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "scripts": ["background/index.js"]
+  },
+  "permissions": ["storage", "alarms", "tabs"],
+  "host_permissions": [
+    "https://github.com/*",
+    "https://api.github.com/*",
+    "https://gitee.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*/*"],
+      "js": ["content/index.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://gitee.com/*"],
+      "js": ["content/gitee.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "github2gitee@local.dev",
+      "strict_min_version": "121.0"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*"],
+      "matches": ["https://github.com/*", "https://gitee.com/*"]
+    }
+  ]
+}
