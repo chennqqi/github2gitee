@@ -18,7 +18,7 @@
 ## 1. 工程侧（本仓库可完成）
 
 - [x] MIT `LICENSE`
-- [x] 隐私政策草稿 [`privacy-policy.md`](./privacy-policy.md)
+- [x] 隐私政策草稿 [`privacy-policy.md`](./privacy-policy.md)（英文为准据文本，附中文译本）
 - [x] 商店文案草稿 [`store-listing.md`](./store-listing.md)
 - [x] 打包脚本：`cd extension && npm run pack`
 - [x] 构建产物：`dist/chrome`、`dist/firefox`
