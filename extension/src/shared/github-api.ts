@@ -10,6 +10,69 @@ export type GithubRepoInfo = {
 };
 
 /**
+ * Builds request headers. Token is optional for public repositories.
+ */
+function buildHeaders(token = ""): Record<string, string> {
+  const headers: Record<string, string> = {
+    accept: "application/vnd.github+json",
+    "x-github-api-version": "2022-11-28",
+  };
+  if (token.trim()) {
+    headers.authorization = `Bearer ${token.trim()}`;
+  }
+  return headers;
+}
+
+/**
+ * Returns true when the response indicates auth/rate-limit problems that may
+ * succeed again without a (bad) Authorization header.
+ */
+function shouldRetryWithoutToken(status: number, usedToken: boolean): boolean {
+  return usedToken && (status === 401 || status === 403);
+}
+
+/**
+ * Formats a GitHub HTTP failure into a user-facing English message.
+ */
+async function formatGithubHttpError(
+  response: Response,
+  action: string,
+): Promise<string> {
+  let detail = "";
+  try {
+    const body = (await response.json()) as { message?: string };
+    if (body.message) {
+      detail = ` — ${body.message}`;
+    }
+  } catch {
+    // Ignore non-JSON error bodies.
+  }
+  if (response.status === 403 || response.status === 429) {
+    return `${action} failed (HTTP ${response.status})${detail}. GitHub token is optional for public repos; leave it empty, or set a valid token if you hit rate limits.`;
+  }
+  return `${action} failed (HTTP ${response.status})${detail}`;
+}
+
+/**
+ * Fetches a GitHub URL, retrying without token when an optional token is rejected.
+ */
+async function githubFetch(
+  url: string,
+  token = "",
+): Promise<Response> {
+  const trimmed = token.trim();
+  const response = await fetch(url, { headers: buildHeaders(trimmed) });
+  if (!shouldRetryWithoutToken(response.status, Boolean(trimmed))) {
+    return response;
+  }
+  // Invalid/expired optional GitHub tokens break public-repo reads; fall back.
+  console.info(
+    "[github2gitee] GitHub token rejected; retrying without Authorization",
+  );
+  return fetch(url, { headers: buildHeaders("") });
+}
+
+/**
  * Loads basic repository information from GitHub.
  */
 export async function getGithubRepo(
@@ -17,18 +80,10 @@ export async function getGithubRepo(
   repo: string,
   token = "",
 ): Promise<GithubRepoInfo> {
-  const headers: Record<string, string> = {
-    accept: "application/vnd.github+json",
-  };
-  if (token.trim()) {
-    headers.authorization = `Bearer ${token.trim()}`;
-  }
-  const response = await fetch(
-    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
-    { headers },
-  );
+  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  const response = await githubFetch(url, token);
   if (!response.ok) {
-    throw new Error(`Get GitHub repo failed (HTTP ${response.status})`);
+    throw new Error(await formatGithubHttpError(response, "Get GitHub repo"));
   }
   const data = (await response.json()) as {
     full_name: string;
@@ -53,17 +108,13 @@ export async function getGithubLatestSha(
   branch: string,
   token = "",
 ): Promise<string | null> {
-  const headers: Record<string, string> = {
-    accept: "application/vnd.github+json",
-  };
-  if (token.trim()) {
-    headers.authorization = `Bearer ${token.trim()}`;
-  }
-  const response = await fetch(
-    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits?sha=${encodeURIComponent(branch)}&per_page=1`,
-    { headers },
-  );
+  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits?sha=${encodeURIComponent(branch)}&per_page=1`;
+  const response = await githubFetch(url, token);
   if (!response.ok) {
+    console.info(
+      "[github2gitee]",
+      await formatGithubHttpError(response, "Get GitHub commit SHA"),
+    );
     return null;
   }
   const data = (await response.json()) as Array<{ sha?: string }>;

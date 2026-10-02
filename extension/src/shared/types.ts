@@ -34,6 +34,8 @@ export type RepoMapping = {
   last_github_sha?: string;
   last_gitee_sha?: string;
   last_sync_at?: string;
+  /** ISO time of the last GitHub/Gitee SHA comparison (rate-limit gate). */
+  last_sha_check_at?: string;
   last_error?: string;
   gitee_repo_url?: string;
   github_clone_url?: string;
@@ -51,4 +53,18 @@ export const DEFAULT_CONFIG: AppConfig = {
 
 export const POLL_ALARM_NAME = "github2gitee_poll";
 
+/** Minimum interval between on-demand SHA comparisons per mapping (API rate limit). */
+export const MIN_SHA_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+
 export const GITEE_IMPORT_URL_PAGE = "https://gitee.com/projects/import/url";
+
+/**
+ * Returns true when the mapping UI should offer an actionable Sync now button.
+ */
+export function mappingNeedsSync(status: SyncStatus): boolean {
+  return (
+    status === "update_available" ||
+    status === "needs_manual_sync" ||
+    status === "failed"
+  );
+}

@@ -2,6 +2,7 @@ import browser from "webextension-polyfill";
 import { resolveLocale, t, type Locale } from "../shared/i18n";
 import type { ExtensionResponse } from "../shared/messages";
 import type { AppConfig, RepoMapping } from "../shared/types";
+import { mappingNeedsSync } from "../shared/types";
 
 /**
  * Sends a typed runtime message and unwraps the response payload.
@@ -127,22 +128,53 @@ function renderMappings(mappings: RepoMapping[]): void {
         })();
       });
       item.appendChild(confirmBtn);
+    } else if (mappingNeedsSync(mapping.status)) {
+      const syncBtn = document.createElement("button");
+      syncBtn.className = "action primary";
+      syncBtn.textContent = t(locale, "sync_now");
+      syncBtn.addEventListener("click", () => {
+        void (async () => {
+          try {
+            await sendMessage({ type: "manual_sync", id: mapping.id });
+            await refresh();
+          } catch (error) {
+            window.alert(error instanceof Error ? error.message : String(error));
+          }
+        })();
+      });
+      item.appendChild(syncBtn);
+    } else {
+      const checkBtn = document.createElement("button");
+      checkBtn.className = "action";
+      checkBtn.textContent = t(locale, "check_updates");
+      checkBtn.addEventListener("click", () => {
+        void (async () => {
+          try {
+            const result = await sendMessage<{
+              mapping: RepoMapping;
+              checked: boolean;
+              retry_after_seconds?: number;
+            }>({
+              type: "check_mapping_sync",
+              id: mapping.id,
+            });
+            if (!result.checked) {
+              window.alert(t(locale, "check_throttled"));
+            } else if (mappingNeedsSync(result.mapping.status)) {
+              window.alert(
+                result.mapping.last_error || t(locale, "status_update"),
+              );
+            } else {
+              window.alert(t(locale, "already_in_sync"));
+            }
+            await refresh();
+          } catch (error) {
+            window.alert(error instanceof Error ? error.message : String(error));
+          }
+        })();
+      });
+      item.appendChild(checkBtn);
     }
-
-    const syncBtn = document.createElement("button");
-    syncBtn.className = "action primary";
-    syncBtn.textContent = t(locale, "sync_now");
-    syncBtn.addEventListener("click", () => {
-      void (async () => {
-        try {
-          await sendMessage({ type: "manual_sync", id: mapping.id });
-          await refresh();
-        } catch (error) {
-          window.alert(error instanceof Error ? error.message : String(error));
-        }
-      })();
-    });
-    item.appendChild(syncBtn);
 
     if (mapping.gitee_repo_url) {
       const openBtn = document.createElement("button");

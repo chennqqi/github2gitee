@@ -22,11 +22,82 @@ import {
   upsertMapping,
 } from "../shared/storage";
 import {
+  MIN_SHA_CHECK_INTERVAL_MS,
   POLL_ALARM_NAME,
   type AppConfig,
   type RepoMapping,
 } from "../shared/types";
 import { resolveLocale } from "../shared/i18n";
+
+export type ShaCheckResult = {
+  mapping: RepoMapping;
+  checked: boolean;
+  retry_after_seconds?: number;
+};
+
+/**
+ * Compares GitHub and Gitee tip SHAs and updates mapping status.
+ * Throttled unless `force` is true (background poll uses force).
+ */
+async function refreshMappingShaStatus(
+  mapping: RepoMapping,
+  config: AppConfig,
+  options?: { force?: boolean },
+): Promise<ShaCheckResult> {
+  const force = options?.force === true;
+  const nowMs = Date.now();
+  if (!force && mapping.last_sha_check_at) {
+    const elapsed = nowMs - Date.parse(mapping.last_sha_check_at);
+    if (Number.isFinite(elapsed) && elapsed < MIN_SHA_CHECK_INTERVAL_MS) {
+      return {
+        mapping,
+        checked: false,
+        retry_after_seconds: Math.ceil(
+          (MIN_SHA_CHECK_INTERVAL_MS - elapsed) / 1000,
+        ),
+      };
+    }
+  }
+
+  if (mapping.status === "pending_import" || mapping.status === "running") {
+    return { mapping, checked: false };
+  }
+
+  const gh = await getGithubRepo(
+    mapping.github_owner,
+    mapping.github_repo,
+    config.github_token,
+  );
+  const ghSha = await getGithubLatestSha(
+    mapping.github_owner,
+    mapping.github_repo,
+    gh.default_branch,
+    config.github_token,
+  );
+  const geeSha = await getLatestCommitSha(
+    config.gitee_token,
+    mapping.gitee_owner,
+    mapping.gitee_repo,
+    gh.default_branch,
+  );
+
+  mapping.last_github_sha = ghSha ?? mapping.last_github_sha;
+  mapping.last_gitee_sha = geeSha ?? mapping.last_gitee_sha;
+  mapping.last_sha_check_at = new Date().toISOString();
+  mapping.updated_at = mapping.last_sha_check_at;
+
+  if (ghSha && geeSha && ghSha !== geeSha) {
+    mapping.status = "update_available";
+    mapping.last_error =
+      "GitHub is ahead. Click Sync now to update Gitee.";
+  } else if (ghSha && geeSha && ghSha === geeSha) {
+    mapping.status = "success";
+    mapping.last_error = undefined;
+  }
+
+  await upsertMapping(mapping);
+  return { mapping, checked: true };
+}
 
 /**
  * Schedules the repository polling alarm using the configured interval.
@@ -209,6 +280,17 @@ async function manualSync(id: string): Promise<RepoMapping> {
   mapping.last_sync_at = new Date().toISOString();
   mapping.updated_at = mapping.last_sync_at;
   await upsertMapping(mapping);
+
+  if (result.mode === "official_mirror_api") {
+    try {
+      const refreshed = await refreshMappingShaStatus(mapping, config, {
+        force: true,
+      });
+      return refreshed.mapping;
+    } catch {
+      return mapping;
+    }
+  }
   return mapping;
 }
 
@@ -246,51 +328,36 @@ async function runPollPass(): Promise<void> {
         continue;
       }
 
-      const gh = await getGithubRepo(
-        mapping.github_owner,
-        mapping.github_repo,
-        config.github_token,
-      );
-      const ghSha = await getGithubLatestSha(
-        mapping.github_owner,
-        mapping.github_repo,
-        gh.default_branch,
-        config.github_token,
-      );
-      const geeSha = await getLatestCommitSha(
-        config.gitee_token,
-        mapping.gitee_owner,
-        mapping.gitee_repo,
-        gh.default_branch,
-      );
-      mapping.last_github_sha = ghSha ?? mapping.last_github_sha;
-      mapping.last_gitee_sha = geeSha ?? mapping.last_gitee_sha;
-
-      if (ghSha && geeSha && ghSha !== geeSha) {
-        // Try silent mirror pull only (do not open tabs during background poll).
+      // Alarm-driven poll always compares SHAs (already spaced 10–60 minutes).
+      const result = await refreshMappingShaStatus(mapping, config, {
+        force: true,
+      });
+      const current = result.mapping;
+      if (
+        current.status === "update_available" &&
+        current.last_github_sha &&
+        current.last_gitee_sha &&
+        current.last_github_sha !== current.last_gitee_sha
+      ) {
         const api = await triggerRemoteMirrorPull(
           config.gitee_token,
-          mapping.gitee_owner,
-          mapping.gitee_repo,
+          current.gitee_owner,
+          current.gitee_repo,
         );
         if (api.ok) {
-          mapping.status = "success";
-          mapping.sync_mode = "official_mirror_api";
-          mapping.last_error = "Auto-triggered Gitee remote_mirror pull";
-          mapping.last_sync_at = new Date().toISOString();
+          current.status = "success";
+          current.sync_mode = "official_mirror_api";
+          current.last_error = "Auto-triggered Gitee remote_mirror pull";
+          current.last_sync_at = new Date().toISOString();
+          current.updated_at = current.last_sync_at;
+          await upsertMapping(current);
         } else {
-          mapping.status = "update_available";
-          mapping.sync_mode = "open_gitee_page";
-          mapping.last_error =
+          current.sync_mode = "open_gitee_page";
+          current.last_error =
             "GitHub is ahead. Click Sync now to open Gitee 同步更新.";
+          await upsertMapping(current);
         }
-      } else if (ghSha && geeSha && ghSha === geeSha) {
-        mapping.status = "success";
-        mapping.last_error = undefined;
       }
-
-      mapping.updated_at = new Date().toISOString();
-      await upsertMapping(mapping);
     } catch (error) {
       const text = error instanceof Error ? error.message : String(error);
       console.info("[github2gitee] poll mapping failed:", text);
@@ -344,9 +411,26 @@ async function handleMessage(
       case "run_poll_now":
         await runPollPass();
         return { ok: true, data: await listMappings() };
+      case "check_mapping_sync": {
+        const config = await getConfig();
+        if (!config.gitee_token) {
+          throw new Error("Please configure a Gitee token in Options first");
+        }
+        const mappings = await listMappings();
+        const mapping = mappings.find((item) => item.id === message.id);
+        if (!mapping) {
+          throw new Error("Mapping not found");
+        }
+        return {
+          ok: true,
+          data: await refreshMappingShaStatus(mapping, config, {
+            force: message.force === true,
+          }),
+        };
+      }
       case "get_page_context": {
         const config = await getConfig();
-        const mapping = await findMappingByGithub(
+        let mapping = await findMappingByGithub(
           message.github_owner,
           message.github_repo,
         );
@@ -364,6 +448,24 @@ async function handleMessage(
         }
         try {
           const user = await getGiteeUser(config.gitee_token);
+          if (
+            mapping &&
+            mapping.status !== "pending_import" &&
+            mapping.status !== "running"
+          ) {
+            // Throttled SHA check so Sync now only appears when GitHub is ahead.
+            // Failures here must not look like a Gitee token error.
+            try {
+              const checked = await refreshMappingShaStatus(mapping, config, {
+                force: false,
+              });
+              mapping = checked.mapping;
+            } catch (shaError) {
+              const text =
+                shaError instanceof Error ? shaError.message : String(shaError);
+              console.info("[github2gitee] SHA status check skipped:", text);
+            }
+          }
           return {
             ok: true,
             data: {

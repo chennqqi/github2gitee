@@ -20,6 +20,10 @@ export type MessageKey =
   | "register_existing"
   | "confirm_imported"
   | "sync_now"
+  | "check_updates"
+  | "already_in_sync"
+  | "in_sync_hint"
+  | "check_throttled"
   | "reopen_import"
   | "needs_setup"
   | "panel_setup_hint"
@@ -103,6 +107,10 @@ const ZH: Dict = {
   register_existing: "已导入，登记映射",
   confirm_imported: "确认已导入",
   sync_now: "立即同步",
+  check_updates: "检查更新",
+  already_in_sync: "已与 GitHub 一致，无需同步。",
+  in_sync_hint: "当前已同步。有更新时才会出现「立即同步」。可手动检查（最少间隔 10 分钟，避免 API 限流）。",
+  check_throttled: "检查过于频繁，请稍后再试，以降低 API 限流风险。",
   reopen_import: "再次打开导入页",
   needs_setup: "需要先完成配置",
   panel_setup_hint: "请先在扩展设置页填写 Gitee Token，再回来操作。",
@@ -157,7 +165,7 @@ const ZH: Dict = {
   section_poll: "自动检查",
   gitee_token_label: "Gitee access token（必填）",
   gitee_token_hint: "仅保存在本机扩展存储。",
-  github_token_label: "GitHub token（可选，公开仓可不填）",
+  github_token_label: "GitHub token（可选；公开仓请留空。填错反而会 403）",
   poll_label: "自动检查间隔（分钟，10–60）",
   save: "保存",
   validate_token: "校验 Token",
@@ -185,6 +193,10 @@ const EN: Dict = {
   register_existing: "Already imported, register",
   confirm_imported: "Confirm imported",
   sync_now: "Sync now",
+  check_updates: "Check for updates",
+  already_in_sync: "Already matches GitHub — sync not needed.",
+  in_sync_hint: "In sync. Sync now appears only when updates are detected. Manual checks are limited to once every 10 minutes to avoid API rate limits.",
+  check_throttled: "Checked recently. Please wait before checking again to avoid API rate limits.",
   reopen_import: "Reopen import page",
   needs_setup: "Setup required",
   panel_setup_hint: "Add your Gitee token in Settings, then return here.",
@@ -239,7 +251,7 @@ const EN: Dict = {
   section_poll: "Auto-check",
   gitee_token_label: "Gitee access token (required)",
   gitee_token_hint: "Stored only in local extension storage.",
-  github_token_label: "GitHub token (optional for public repos)",
+  github_token_label: "GitHub token (optional — leave empty for public repos; a bad token causes 403)",
   poll_label: "Auto-check interval (minutes, 10–60)",
   save: "Save",
   validate_token: "Validate token",

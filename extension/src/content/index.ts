@@ -2,6 +2,7 @@ import browser from "webextension-polyfill";
 import { t, type Locale } from "../shared/i18n";
 import type { ExtensionResponse, PageContext } from "../shared/messages";
 import type { RepoMapping } from "../shared/types";
+import { mappingNeedsSync } from "../shared/types";
 
 const ROOT_ID = "github2gitee-panel-root";
 const STYLE_ID = "github2gitee-panel-style";
@@ -522,28 +523,68 @@ function renderPanel(state: PanelState, onRefresh: () => void): void {
         })();
       });
     } else {
-      setStepsHint(setupEl, t(locale, "sync_hint"));
-      addBtn(t(locale, "sync_now"), "primary", () => {
-        void (async () => {
-          state.busy = true;
-          state.message = t(locale, "syncing");
-          renderPanel(state, onRefresh);
-          try {
-            const updated = await sendMessage<RepoMapping>({
-              type: "manual_sync",
-              id: mapping.id,
-            });
-            state.message = updated.last_error || t(locale, "checked");
-            state.isError = false;
-            onRefresh();
-          } catch (error) {
-            state.isError = true;
-            state.message = error instanceof Error ? error.message : String(error);
-            state.busy = false;
+      const needsSync = mappingNeedsSync(mapping.status);
+      if (needsSync) {
+        setStepsHint(setupEl, t(locale, "sync_hint"));
+        addBtn(t(locale, "sync_now"), "primary", () => {
+          void (async () => {
+            state.busy = true;
+            state.message = t(locale, "syncing");
             renderPanel(state, onRefresh);
-          }
-        })();
-      });
+            try {
+              const updated = await sendMessage<RepoMapping>({
+                type: "manual_sync",
+                id: mapping.id,
+              });
+              state.message = updated.last_error || t(locale, "checked");
+              state.isError = false;
+              onRefresh();
+            } catch (error) {
+              state.isError = true;
+              state.message =
+                error instanceof Error ? error.message : String(error);
+              state.busy = false;
+              renderPanel(state, onRefresh);
+            }
+          })();
+        });
+      } else {
+        setStepsHint(setupEl, t(locale, "in_sync_hint"));
+        addBtn(t(locale, "check_updates"), "secondary", () => {
+          void (async () => {
+            state.busy = true;
+            state.message = t(locale, "checked");
+            state.isError = false;
+            renderPanel(state, onRefresh);
+            try {
+              const result = await sendMessage<{
+                mapping: RepoMapping;
+                checked: boolean;
+                retry_after_seconds?: number;
+              }>({
+                type: "check_mapping_sync",
+                id: mapping.id,
+              });
+              if (!result.checked) {
+                state.message = t(locale, "check_throttled");
+              } else if (mappingNeedsSync(result.mapping.status)) {
+                state.message =
+                  result.mapping.last_error || t(locale, "status_update");
+              } else {
+                state.message = t(locale, "already_in_sync");
+              }
+              state.isError = false;
+              onRefresh();
+            } catch (error) {
+              state.isError = true;
+              state.message =
+                error instanceof Error ? error.message : String(error);
+              state.busy = false;
+              renderPanel(state, onRefresh);
+            }
+          })();
+        });
+      }
       if (mapping.gitee_repo_url) {
         addBtn(t(locale, "open_gitee"), "secondary", () => {
           window.open(mapping.gitee_repo_url, "_blank", "noopener,noreferrer");
@@ -583,7 +624,7 @@ async function mountForRepo(owner: string, repo: string): Promise<void> {
           github_repo: repo,
         });
         state.busy = false;
-        if (state.context.token_error) {
+        if (state.context.token_error && !state.context.has_gitee_token) {
           state.message = `${t(state.context.locale, "token_invalid")}: ${state.context.token_error}`;
           state.isError = true;
         }

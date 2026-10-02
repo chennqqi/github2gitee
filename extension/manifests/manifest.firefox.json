@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GitHub to Gitee Sync",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "Import and sync GitHub repositories to Gitee via official Gitee flows",
   "action": {
     "default_title": "GitHub to Gitee",

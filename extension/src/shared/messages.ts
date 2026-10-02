@@ -19,6 +19,7 @@ export type ExtensionMessage =
     }
   | { type: "validate_gitee_token" }
   | { type: "run_poll_now" }
+  | { type: "check_mapping_sync"; id: string; force?: boolean }
   | { type: "get_page_context"; github_owner: string; github_repo: string }
   | { type: "open_options" }
   | { type: "page_repo_detected"; github_owner: string; github_repo: string };
